@@ -1,0 +1,163 @@
+-> DAO can be implemented by :
+	- ORM - Object Relational Mapping (Ex. Hibernate, OpenJPA)
+	- JDBC
+
+- JPA 	- specification - standard interfaces are provided by java
+	- provides interfaces for DAO
+	- Hibernate is implementation of JPA
+	- Some implementations of JPA include - Eclipse link, Hibernate, Top Link, OpenJPA
+
+-> ORM	- helps in mapping user data with database
+	- when connecting application using jdbc, then:
+		1) the driver has to be loaded
+		2) establish the connection
+		3) create a statement
+		4) execute the statement
+		5) store the data in a resultset
+		6) process the resultset
+		7) show the data to end user
+	- boilerplate code (steps repeated everytime in jdbc)
+	- it can be omitted usigng ORM
+	- can be done in 2 ways - XML
+				- annotations
+	- @Entity required on top of bean class (Persistence Class)
+		- will search for the same name of bean class in db
+		- will map the fields in the class with the column names in the db
+	- @Table(name="Student") - used to annotate class with database table name
+	- @Id - will refer same name in column and assign with primary key
+
+	- JPA contains a persistence.xml file that acts as a config file for JPA application
+	- persistence.xml should be present in META-INF folder
+	- META-INF should be present in a folder that is in build path
+
+- Persistence.createEntityManagerFactory(persistenceUnitName [in persistenc.xml]) - returns instance of "EntityManagerFactory"
+  (class)	(static method)
+- EntityManager entityManager=factory.createEntityManager(); - gives entity manager, responsible for managing life cycle of the object
+
+----------------------------------------------------------------------------------------------------------
+
+    (Class)					      (interface)
+-> Persistence ------> EntityManagerFactory -------> EntityManager -----> EntityObject
+				|		  (specify persistence unit)	|
+				|						|
+			     StudentDB-------------------------------------------
+----------------------------------------------------------------------------------------------------------
+
+manages life cycle of object
+-> EntityManager connects to database using EntityManagerInstance
+
+- entityManager.persist(student); - save in a database
+
+- <property name="hibernate.show_sql" value="true" />	- show sql query in console everytime its executed
+- entityManager.find(Student.class,student.getRollNumber());
+		    (type of object) (primary key)
+- Transaction is required for DML queries
+
+----------------------------------------------------------
+
+Entity Life Cycle States: Manager by EntityManager
+1) New state		: does not contain any persistent identity(Primary key) or context(record)
+2) Managed/Attached 	: moves from new to managed when we call persist() method of EntityManager
+			  - stay attached to DB (merge() , find(), persist())
+			  - entity will have PI and PC
+			  - changes made to attach entity will reflect to database also
+			  - on calling find() method , it will return the attached object
+3) Removed		: remove the persistence identity as well as the persistence context
+			  - remove everything from DB (executed on remove())
+			  - will not remove data from Java object
+4) Detached 		: clear(), close() method detaches the entity class object with the database
+			  - EntityManager.clear() - the associated entity with that entity manager, the state of all those entities will detach
+
+-> JPQL 					SQL
+- Java Persistence Query Language		- Structued Query Language
+- queries on entities				- queries on table
+- from Student					- select * from student
+	(entity name)						(table name)
+- case sensitive in terms of entity 		- case insensitive in terms of table
+  names and field names				  and column names
+- select, from, groupby, orderby,
+  having and where, all clauses are
+  available and are not case sensitive
+- select s from student s
+- * is not a valid identifier in EntityManager Query
+
+-> select s from student s
+   where s.rollNumber = 10;
+	   (field name)
+
+
+-> Query interface 	- in javax.persistence package - perform all possible queries
+-> TypedQuery interface	- specially to execute select query
+
+Query query = entityManager.createQuery("From Student");// get every thing from student table
+List<Student> studentList = query.getResultList();	// returns List of Objects
+- to execute select query, we use getResultList()
+		query.executeUpdate() - to update values in database
+-> TypedQuery - typesafe
+-> Query - note type safe - can give ClassCastException at runtime
+
+---------------------------------------------------------
+-> Association
+- having a reference of object of one class in another class will relate them in Java
+- PK and FK will relate tables in DB
+
+- One to One 	- @OneToOne used in parent Class to recognise it - make the column as foreign key
+		- name of foreign key column - ForrignkeyColumn_primarykey Ex: address_addressId
+		- done implicitly by JPA
+		  @JoinColumn(name="addressId") - rename forrign key column name
+		- if address reference is created inside student entity
+		  such a relationship is called *unidirectional relationship*
+		- in a unidirectional relationship, foreign key is always
+		  created in the table that includes reference
+		- default name of foreign key column will be "referenceName_primarykey of address column"
+		  Ex: address_addressId
+		- to override the default name, use @JoinColumn(name="koi naam") 
+		  where the @OneToOne annotation exists
+- One to One Bi-Directional - create reference of each entity in each other's class
+	- owner side or inverse side
+	- @OneToOne(mappedBy="address") - column reference of the class reference used in owner entity
+					  and referenced in inverse side
+					- generates FK only in owner side table
+	- @GeneratedValue(strategy=GenerationType.SEQUENCE) 
+		- used to specify autogenerated value for the entity (usually PK)
+		- default generated value for sequence is 50
+		- @SequenceGenerator(name="seq", sequenceName="address_seq",allocationSize=1,initialValue=1)
+			- to start it with 1		
+	- @OneToOne(cascade=CascadeType.ALL) - cascade all operations in parent class (CRUD)
+					     - can be used in inverse class as well
+	- reference of student and address should be present in the other entity class
+	- which ever entitiy has @OneToOne(mappedBy="address") annotation, is called inverse entity
+	- value of mappedBy should be the reference of entity used in the other class of the given reference
+	- @JoinColumn() should contain in "OWNER SIDE" entity - foreign key genrated on the owner table
+	- @OneToOne(cascade=CascadeType.ALL) - can be used in any entity - all the operations will be applicable to the cascaded class
+
+- One to Many(<-->)
+	- many side entity is always the owner entity
+	- foreign key is created on many side table
+	- any field marked with @Transient - such fields wont get persisted in a database
+	- good practice to implement seriazable interface for all entities
+
+	- fetch=FetchType.EAGER - used with @OneToMany
+		- when to select dependent 
+		"Select d from Department d where d.departmentId = 10;"
+		- as a result of this query, we get information from deparment table
+		  and information from employee table related to the given department
+		- fetch attribute specifies how and when the dependent record gets selected
+		- EAGER - specifies that the record will get selected as soon as the above query is executed
+		- LAZY - dependent record is selected only on demand (when we say department.getEmployees())
+
+- Many to Many
+	- we always require 3rd mapping table for 2 entities
+	- mapping table will contain orderId(order table) prodictId(product table)
+	  and combination of both columns will be the primary key(composite key)
+	- default name of third table = ownertable_inversetable
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+-> Inheritence - 3 kinds of strategies:
+	- Single table inheritence strategy
+		@Inheritance(strategy=InheritanceType.SINGLE_TABLE)
+		- oracle - needs extra column to specify discriminator column
+			@DiscriminatorColumn(name="account_type") - applicable only for single table strategy
+	- Table per class
+	- Joined
+
